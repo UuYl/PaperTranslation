@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- 上述3个meta标签*必须*放在最前面，任何其他内容都*必须*跟随其后！ -->
+    <title>翻译</title>
+
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
+
+</head>
+<body>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-6" style=" position:fixed; top:0; left:0;">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="row">
+                        <div class="col-md-12">
+                            <h3><span class="label label-success">输入</span></h3>
+                        </div>
+                        <div class="col-md-12">
+                            <textarea class="form-control" rows="10" id="input_original"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="row">
+                        <div class="col-md-12">
+                            <h3><span class="label label-success">翻译</span></h3>
+                        </div>
+                        <div class="col-md-12">
+                            <textarea class="form-control" rows="10" id="input_translation"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="row">
+                        <div class="col-md-12">
+                            <h3><span class="label label-success">处理</span></h3>
+                        </div>
+                        <div class="col-md-12">
+                            <textarea class="form-control" rows="10" id="input_processed"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6" style=" position:absolute; top:0; right:0;">
+            <div class="row">
+                <div class="col-md-12" id="input_result">
+
+                </div>
+            </div>
+            <div class="row" style=" position:fixed; top:0;">
+                <div class="col-md-2">
+                    <h3><button type="button" class="btn btn-primary" id="add"> 添加 </button></h3>
+                </div>
+                <div class="col-md-2">
+                    <h3><button type="button" class="btn btn-primary" id="undo"> 撤销 </button></h3>
+                </div>
+                <div class="col-md-2">
+                    <h3><button type="button" class="btn btn-primary" id="redo"> 重做 </button></h3>
+                </div>
+                <div class="col-md-2">
+                    <h3><button type="button" class="btn btn-primary" id="copy"> 复制 </button></h3>
+                </div>
+                <div class="col-md-2">
+                    <h3><button type="button" class="btn btn-primary" id="save"> 保存 </button></h3>
+                </div>
+                <div class="col-md-2">
+                    <h3><button type="button" class="btn btn-primary" id="clear"> 清空 </button></h3>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/jquery@1.12.4/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/js/bootstrap.min.js"></script>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.10.0/js/md5.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+    let record = [];
+    let index = 0;
+
+    function original_change(){
+        let original = document.getElementById("input_original");
+        $(original).height(original.scrollHeight);
+        let input_original = original.value;
+        let input_processed;
+        input_processed = input_original.replace(/\n/g, " ");
+        input_processed = input_processed.replace(/- /g, "");
+        document.getElementById("input_processed").value = input_processed;
+        processed_change();
+    }
+
+    function processed_change() {
+        let processed = document.getElementById("input_processed");
+        $(processed).height(processed.scrollHeight);
+        let input_processed = processed.value;
+
+        let url = 'http://127.0.0.1:8081/translate';
+        let data = {
+            'i': input_processed
+        };
+        $.post(url, data, function (data) {
+            document.getElementById("input_translation").value = data['result'];
+            translation_change();
+        });
+    }
+
+    function translation_change() {
+        let translation = document.getElementById("input_translation");
+        $(translation).height(translation.scrollHeight);
+    }
+
+    function set_result() {
+        let result = document.getElementById("input_result");
+        let input_result = "";
+        for(let i = 0; i < index; i++) {
+            input_result += record[i];
+        }
+
+        result.innerHTML  = marked(input_result);
+    }
+
+    function add() {
+        let processed = document.getElementById("input_processed");
+        let translation = document.getElementById("input_translation");
+        let input_processed = processed.value;
+        let input_translation = translation.value;
+
+        if(input_processed[0] === "#") {
+            record[index] = (input_processed + "\n\n");
+        }
+        else {
+            record[index] = (input_processed + "\n\n" + input_translation + "\n\n");
+        }
+
+        ++index;
+
+        set_result();
+    }
+
+    function undo() {
+        if(index > 0) {
+            --index;
+            set_result();
+        }
+    }
+
+    function redo() {
+        console.log(record.length);
+        if(index < record.length) {
+            ++index;
+            set_result();
+        }
+    }
+
+    function copy() {
+        let input_result = "";
+        for(let i = 0; i < index; i++) {
+            input_result += record[i];
+        }
+
+        let input = document.createElement('textarea');
+	    document.body.appendChild(input);
+ 	    input.value = input_result;
+	    input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
+    }
+
+    function save() {
+        let input_result = "";
+        for(let i = 0; i < index; i++) {
+            input_result += record[i];
+        }
+
+        let url = 'http://127.0.0.1:8081/save';
+        let data = {
+            'text': input_result
+        };
+        $.post(url, data, function (data) {
+            console.log(data);
+        });
+    }
+
+    function clear() {
+        let result = document.getElementById("input_result");
+        result.innerHTML = "";
+        index = 0;
+        
+        let original = document.getElementById("input_original");
+        let processed = document.getElementById("input_processed");
+        let translation = document.getElementById("input_translation");
+        
+        $(original).height(300);
+        $(processed).height(300);
+        $(translation).height(300);
+    }
+
+    document.getElementById("input_original").addEventListener("input", original_change);
+    document.getElementById("input_processed").addEventListener("input", processed_change);
+    document.getElementById("input_translation").addEventListener("input", translation_change);
+    document.getElementById("add").addEventListener("click", add);
+    document.getElementById("undo").addEventListener("click", undo);
+    document.getElementById("redo").addEventListener("click", redo);
+    document.getElementById("copy").addEventListener("click", copy);
+    document.getElementById("save").addEventListener("click", save);
+    document.getElementById("clear").addEventListener("click", clear);
+    
+
+</script>
+</body>
+</html>
